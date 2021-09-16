@@ -82,7 +82,7 @@ public class RandomWalk {
 //            throw new RuntimeException("Syntax: RandomWalk steps [experiments]");
 //        int m = Integer.parseInt(args[0]);
         try {
-            FileWriter dataCsv = new FileWriter("/Users/shanchu/Documents/randomwalk_data1.csv");
+            FileWriter dataCsv = new FileWriter("/Users/shanchu/Documents/randomwalk_data.csv");
             String header = "steps,distance\r\n";
             dataCsv.write(header);
             for(int i=1;i<=1000;i++){
