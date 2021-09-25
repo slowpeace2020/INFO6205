@@ -52,10 +52,95 @@ public class Timer {
      * @param postFunction a function which consumes a U and which succeeds the call of function, but which is not timed (may be null).
      * @return the average milliseconds per repetition.
      */
+    public <T, U> double repeat1(int n, Supplier<T> supplier, Function<T, U> function, UnaryOperator<T> preFunction, Consumer<U> postFunction) {
+        logger.trace("repeat: with " + n + " runs");
+        // TO BE IMPLEMENTED: note that the timer is running when this method is called and should still be running when it returns.
+        T t = supplier.get();
+
+        //pre function runtime
+        double timePre =0;
+        if(preFunction!=null){
+            Timer timerPre = new Timer();
+            for(int i=0;i<n;i++){
+                t = preFunction.apply(t);
+                timerPre.lap();
+            }
+            timerPre.pause();
+            timePre = timerPre.meanLapTime();
+        }
+//        System.out.println("timePre = "+timePre);
+
+        //function runtime
+       U u = null;
+//        Timer timerRun = new Timer();
+        for(int i=0;i<n;i++){
+            u = function.apply(t);
+//            timerRun.lap();
+            lap();
+        }
+//        timerRun.pause();
+        pause();
+//       double timeRun = timerRun.meanLapTime();
+       double timeRun = meanLapTime();
+//        System.out.println("timeRun = "+timeRun);
+
+        //post function runtime
+        double timePost = 0;
+        if(postFunction!=null){
+            Timer timerPost = new Timer();
+            for (int i = 0; i < n; i++) {
+                postFunction.accept(u);
+                timerPost.lap();
+            }
+            timerPost.pause();
+            timePost = timerPost.meanLapTime();
+        }
+//        System.out.println("timePost = "+timePost);
+
+        return timeRun-timePre;
+    }
     public <T, U> double repeat(int n, Supplier<T> supplier, Function<T, U> function, UnaryOperator<T> preFunction, Consumer<U> postFunction) {
         logger.trace("repeat: with " + n + " runs");
         // TO BE IMPLEMENTED: note that the timer is running when this method is called and should still be running when it returns.
-        return 0;
+        T t = supplier.get();
+
+        //pre function runtime
+        double timePre =0;
+        if(preFunction!=null){
+            for(int i=0;i<n;i++){
+                t = preFunction.apply(t);
+                lap();
+            }
+            pause();
+            timePre = meanLapTime();
+            this.laps=0;
+            resume();
+        }
+
+        //function runtime
+        U u = null;
+
+        for(int i=0;i<n;i++){
+            u = function.apply(t);
+            lap();
+        }
+
+        //post function runtime
+        double timePost = 0;
+        if(postFunction!=null){
+            Timer timerPost = new Timer();
+            for (int i = 0; i < n; i++) {
+                postFunction.accept(u);
+                timerPost.lap();
+            }
+            timerPost.pause();
+            timePost = timerPost.meanLapTime();
+        }
+
+        pause();
+        double timeAll = meanLapTime();
+
+        return timeAll-timePre-timePost;
     }
 
     /**
@@ -174,7 +259,7 @@ public class Timer {
      */
     private static long getClock() {
         // TO BE IMPLEMENTED
-        return 0;
+        return System.nanoTime();
     }
 
     /**
@@ -186,7 +271,7 @@ public class Timer {
      */
     private static double toMillisecs(long ticks) {
         // TO BE IMPLEMENTED
-        return 0;
+        return ticks/1000000L;
     }
 
     final static LazyLogger logger = new LazyLogger(Timer.class);
