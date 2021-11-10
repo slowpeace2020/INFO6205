@@ -16,40 +16,91 @@ import java.util.concurrent.ForkJoinPool;
  */
 public class Main {
 
+    private static final int CHUNK = 250000;
+
+    //thread number
+    //1,2,4,8,16,32,64,128,256,512
+    private static final int NUM_PROCS = 8;
+    private static ForkJoinPool FORKJOIN_POOL = new ForkJoinPool(NUM_PROCS);
+
     public static void main(String[] args) {
         processArgs(args);
-        System.out.println("Degree of parallelism: " + ForkJoinPool.getCommonPoolParallelism());
+//        System.out.println("Degree of parallelism: " + ForkJoinPool.getCommonPoolParallelism());
         Random random = new Random();
-        int[] array = new int[2000000];
-        ArrayList<Long> timeList = new ArrayList<>();
-        for (int j = 50; j < 100; j++) {
-            ParSort.cutoff = 10000 * (j + 1);
-            // for (int i = 0; i < array.length; i++) array[i] = random.nextInt(10000000);
-            long time;
-            long startTime = System.currentTimeMillis();
-            for (int t = 0; t < 10; t++) {
-                for (int i = 0; i < array.length; i++) array[i] = random.nextInt(10000000);
-                ParSort.sort(array, 0, array.length);
+
+        // type=1,cutoff; type=2, thread number, type=3, combine
+        int type = configuration.getOrDefault("-T",1);
+        if(type==1){
+            for(int j = 0;j<100;j++){//fix thread number
+                String res ="";
+                for (int arrSize = 1; arrSize <= 8; arrSize += arrSize) {
+                    int[] array = new int[arrSize*CHUNK*8];
+                    ParSort.cutoff = (j + 1) * 10000;
+                    long time;
+                    long startTime = System.currentTimeMillis();
+                    for (int t = 0; t < 10; t++) {
+                        for (int i = 0; i < array.length; i++) array[i] = random.nextInt(10000000);
+                        ParSort.sort(array, 0, array.length,FORKJOIN_POOL);
+                    }
+                    long endTime = System.currentTimeMillis();
+                    time = (endTime - startTime);
+                    res+=(time/10)+",";
+                    System.out.println("Degree of parallelism: " + FORKJOIN_POOL.getParallelism() + ",cutoff:" + ParSort.cutoff +
+                        ",size:" + arrSize + ",time:" + time + "ms");
+                }
+                System.out.println(res.substring(0,res.length()-1));
+                writeToCsv(res.substring(0,res.length()-1),"cutoff");
             }
-            long endTime = System.currentTimeMillis();
-            time = (endTime - startTime);
-            timeList.add(time);
+        }else if(type==2){//experiment for different thread number, fix cutoff
+            ParSort.cutoff = 40000;
 
+            String res ="";
+            for (int arrSize = 1; arrSize <= 256; arrSize += arrSize) {
+                int[] array = new int[arrSize*CHUNK];
+                long time;
+                long startTime = System.currentTimeMillis();
+                for (int t = 0; t < 10; t++) {
+                    for (int i = 0; i < array.length; i++) array[i] = random.nextInt(10000000);
+                    ParSort.sort(array, 0, array.length,FORKJOIN_POOL);
+                }
+                long endTime = System.currentTimeMillis();
+                time = (endTime - startTime);
+                res+=(time/10)+",";
+                System.out.println("Degree of parallelism: " + FORKJOIN_POOL.getParallelism() + ",cutoff:" + ParSort.cutoff +
+                    ",size:" + arrSize + ",time:" + (time/10) + "ms");
+            }
 
-            System.out.println("cutoff：" + (ParSort.cutoff) + "\t\t10times Time:" + time + "ms");
-
+            System.out.println(res.substring(0,res.length()-1));
+            writeToCsv(res.substring(0,res.length()-1),"threadnumber");
+        }else {
+            for(int j = 1;j<16;j+=j){//change thread number, combine with different cutoff
+                String res ="";
+                for (int arrSize = 1; arrSize <= 256; arrSize += arrSize) {
+                    int[] array = new int[arrSize*CHUNK];
+                    ParSort.cutoff = j*10000;
+                    long time;
+                    long startTime = System.currentTimeMillis();
+                    for (int t = 0; t < 10; t++) {
+                        for (int i = 0; i < array.length; i++) array[i] = random.nextInt(10000000);
+                        ParSort.sort(array, 0, array.length,FORKJOIN_POOL);
+                    }
+                    long endTime = System.currentTimeMillis();
+                    time = (endTime - startTime);
+                    res+=(time/10)+",";
+                }
+                System.out.println(res.substring(0,res.length()-1));
+                writeToCsv(res.substring(0,res.length()-1),"combine_"+j);
+            }
         }
+    }
+
+    public static void writeToCsv(String content, String fileName) {
         try {
-            FileOutputStream fis = new FileOutputStream("./src/result.csv");
+            FileOutputStream fis = new FileOutputStream("./src/" + fileName + ".csv", true);
             OutputStreamWriter isr = new OutputStreamWriter(fis);
             BufferedWriter bw = new BufferedWriter(isr);
-            int j = 0;
-            for (long i : timeList) {
-                String content = (double) 10000 * (j + 1) / 2000000 + "," + (double) i / 10 + "\n";
-                j++;
-                bw.write(content);
-                bw.flush();
-            }
+            bw.write(content + "\n");
+            bw.flush();
             bw.close();
 
         } catch (IOException e) {
@@ -71,11 +122,12 @@ public class Main {
     }
 
     private static void processCommand(String x, String y) {
-        if (x.equalsIgnoreCase("N")) setConfig(x, Integer.parseInt(y));
+        if (x.equalsIgnoreCase("-N")) setConfig(x, Integer.parseInt(y));
         else
             // TODO sort this out
-            if (x.equalsIgnoreCase("P")) //noinspection ResultOfMethodCallIgnored
+            if (x.equalsIgnoreCase("-P")) //noinspection ResultOfMethodCallIgnored
                 ForkJoinPool.getCommonPoolParallelism();
+            if (x.equalsIgnoreCase("-T")) setConfig(x, Integer.parseInt(y));
     }
 
     private static void setConfig(String x, int i) {
